@@ -1,0 +1,12 @@
+﻿const router = require('express').Router();
+const c = require('../controllers/quizController');
+const { autenticar, apenasAluno } = require('../middlewares/auth');
+router.get('/dashboard', autenticar, apenasAluno, c.dashboardAluno);
+router.get('/lista', autenticar, c.listarQuizzes);
+router.get('/historico', autenticar, apenasAluno, c.historico);
+router.get('/materiais', autenticar, c.materiaisEstudo);
+router.post('/iniciar', autenticar, apenasAluno, c.iniciarTentativa);
+router.post('/responder', autenticar, apenasAluno, c.responder);
+router.post('/finalizar', autenticar, apenasAluno, c.finalizar);
+router.get('/:id', autenticar, c.obterQuiz);
+module.exports = router;

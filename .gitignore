@@ -1,0 +1,200 @@
+﻿# ============================================================
+#  HISTORIAQUIZ - .gitignore
+#  Ignora arquivos que nao devem ir para o GitHub
+# ============================================================
+
+# ============================================================
+#  NODE.JS
+# ============================================================
+node_modules/
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Cache do npm
+.npm/
+.npmrc
+.yarn/
+.yarnrc
+
+# ============================================================
+#  VARIAVEIS DE AMBIENTE (IMPORTANTE!)
+# ============================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Nunca subir chaves secretas
+*.key
+*.pem
+secrets.json
+
+# ============================================================
+#  BANCO DE DADOS (sql.js)
+# ============================================================
+backend/data/*.db
+backend/data/*.db-journal
+backend/data/*.db.backup
+backend/data/*.sqlite
+backend/data/*.sqlite3
+*.db
+*.db-journal
+*.sqlite
+
+# ============================================================
+#  UPLOADS DE ARQUIVOS (professor)
+# ============================================================
+# Mantem a pasta mas ignora os arquivos enviados
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ============================================================
+#  LOGS
+# ============================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.log.*
+
+# ============================================================
+#  BACKUPS E ARQUIVOS TEMPORARIOS
+# ============================================================
+*.bak
+*.backup
+*.old
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Pasta de backup criada pelos scripts
+backup-fix/
+backup/
+
+# ============================================================
+#  IDEs E EDITORES
+# ============================================================
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+.vim/
+
+# ============================================================
+#  SISTEMAS OPERACIONAIS
+# ============================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================================
+#  BUILD / DIST
+# ============================================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# ============================================================
+#  TESTES E COBERTURA
+# ============================================================
+coverage/
+.nyc_output/
+*.lcov
+.coveralls.yml
+
+# ============================================================
+#  DEPENDENCIAS DE COMPILACAO (evita subir binarios)
+# ============================================================
+*.node
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.lib
+*.obj
+
+# ============================================================
+#  DIVERSOS
+# ============================================================
+# Configuracoes locais
+*.local
+.metadata/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ESLint
+.eslintcache
+
+# PM2
+.pm2/
+
+# ============================================================
+#  ARQUIVOS DE APRESENTACAO (TCC)
+# ============================================================
+# Descomente se NAO quiser subir PDFs e apresentacoes
+# *.pdf
+# *.pptx
+# *.docx
+
+# ============================================================
+#  OBSERVACOES IMPORTANTES
+# ============================================================
+# - O .env NUNCA deve ir para o GitHub (contem JWT_SECRET)
+# - O banco .db e recriado automaticamente pelo seed
+# - A pasta uploads mantem apenas o .gitkeep
+# - Arquivos grandes (uploads) ficam fora do versionamento

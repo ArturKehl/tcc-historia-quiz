@@ -1,0 +1,538 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gerenciar Turmas - HistoriaQuiz</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .turma-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    border: 2px solid #334155;
+    transition: all .2s;
+  }
+  .turma-card:hover { border-color: var(--accent2); }
+  .qr-box {
+    background: white;
+    padding: 16px;
+    border-radius: 12px;
+    display: inline-block;
+    margin: 12px 0;
+  }
+  .qr-box img { display: block; width: 240px; height: 240px; }
+  .codigo-badge {
+    background: #0f172a;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 3px;
+    display: inline-block;
+    margin: 8px 0;
+  }
+  .menu-rapido {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .menu-rapido a {
+    padding: 10px 16px;
+    background: #1e293b;
+    color: #e2e8f0;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: .9rem;
+    transition: all .2s;
+  }
+  .menu-rapido a:hover { background: #334155; }
+  .menu-rapido a.ativo { background: var(--accent); color: #1a1a1a; font-weight: 600; }
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,.85); z-index: 9999;
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; overflow-y: auto;
+  }
+  .modal-overlay.ativo { display: flex; }
+  .modal-content {
+    background: #1e293b; border-radius: 16px; padding: 24px;
+    max-width: 500px; width: 100%; text-align: center;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .botoes-qr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>🏛️ HistoriaQuiz - Turmas</h1>
+    <div>
+      <a href="/" class="btn" style="text-decoration:none;margin-left:6px">🏠 Inicio</a>
+      <button class="btn btn-danger" id="btnSair" style="margin-left:6px">Sair</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Menu rapido -->
+    <div class="menu-rapido">
+      <a href="/" >📊 Painel</a>
+      <a href="/turmas.html" class="ativo">👥 Turmas</a>
+      <a href="/" >❓ Perguntas</a>
+      <a href="/" >📝 Quizzes</a>
+    </div>
+
+    <!-- Conteudo -->
+    <div id="conteudo">
+      <p style="color:#94a3b8;text-align:center;padding:40px">Carregando turmas...</p>
+    </div>
+  </div>
+
+  <!-- Modal QR Code -->
+  <div class="modal-overlay" id="modalQR">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 id="qrTitulo" style="margin:0;color:var(--accent)">QR Code</h2>
+        <button class="btn btn-danger" id="btnFecharModal" style="padding:6px 12px">✕</button>
+      </div>
+
+      <p style="color:#94a3b8;font-size:.9rem;margin-bottom:16px" id="qrSubtitulo"></p>
+
+      <div class="qr-box">
+        <img id="qrImagem" src="" alt="QR Code" />
+      </div>
+
+      <div style="margin:16px 0">
+        <p style="color:#94a3b8;font-size:.8rem;margin-bottom:4px">Codigo de convite</p>
+        <div class="codigo-badge" id="qrCodigo">—</div>
+      </div>
+
+      <div style="background:#0f172a;padding:12px;border-radius:8px;margin-bottom:16px">
+        <p style="color:#94a3b8;font-size:.75rem;margin-bottom:4px">Link de convite</p>
+        <p id="qrURL" style="font-size:.75rem;color:#e2e8f0;word-break:break-all;font-family:monospace">—</p>
+      </div>
+
+      <div class="botoes-qr">
+        <button class="btn btn-accent" id="btnBaixarQR">⬇ Baixar QR</button>
+        <button class="btn" id="btnCopiarLink">📋 Copiar link</button>
+        <button class="btn" id="btnCopiarCodigo">📋 Copiar codigo</button>
+        <button class="btn" id="btnImprimir">🖨️ Imprimir</button>
+      </div>
+
+      <p style="color:#64748b;font-size:.75rem;margin-top:16px;line-height:1.5">
+        💡 Mostre este QR Code na tela ou imprima um cartaz.<br>
+        Os alunos escaneiam com a camera do celular e entram na turma.
+      </p>
+    </div>
+  </div>
+
+<script>
+// ============================================================
+// TURMAS - Pagina dedicada
+// ============================================================
+
+const API = '/api';
+const getToken = () => localStorage.getItem('token');
+const getUsuario = () => JSON.parse(localStorage.getItem('usuario') || 'null');
+
+// ============================================================
+// API helper
+// ============================================================
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const t = getToken();
+  if (t) headers.Authorization = 'Bearer ' + t;
+  const res = await fetch(API + path, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.erro || 'Erro na requisicao');
+  return data;
+}
+
+// ============================================================
+// Inicializacao
+// ============================================================
+async function init() {
+  const usuario = getUsuario();
+  if (!usuario) {
+    window.location.href = '/';
+    return;
+  }
+
+  document.getElementById('btnSair').addEventListener('click', () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/';
+  });
+
+  if (usuario.tipo === 'professor') {
+    carregarTurmasProfessor();
+  } else {
+    carregarMinhaTurma();
+  }
+}
+
+// ============================================================
+// PROFESSOR - Lista de turmas
+// ============================================================
+async function carregarTurmasProfessor() {
+  const div = document.getElementById('conteudo');
+  div.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px">Carregando...</p>';
+
+  try {
+    const turmas = await api('/turmas/minhas');
+
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <h2 style="margin:0">👥 Minhas Turmas (${turmas.length})</h2>
+        <button class="btn btn-accent" id="btnNovaTurma">+ Criar nova turma</button>
+      </div>
+
+      <div id="formNovaTurma" style="display:none;margin-bottom:20px"></div>
+
+      ${turmas.length === 0 ? `
+        <div class="card" style="text-align:center;padding:60px">
+          <div style="font-size:4rem;margin-bottom:12px">👥</div>
+          <h3>Nenhuma turma criada ainda</h3>
+          <p style="color:#94a3b8;margin:12px 0">Clique em "Criar nova turma" para comecar.</p>
+        </div>
+      ` : `
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+          ${turmas.map(t => `
+            <div class="turma-card">
+              <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+                <h3 style="margin:0">${t.nome}</h3>
+                <span class="badge">${t.total_alunos} aluno${t.total_alunos !== 1 ? 's' : ''}</span>
+              </div>
+
+              <div style="text-align:center;margin-top:12px">
+                <p style="color:#94a3b8;font-size:.75rem;margin-bottom:4px">Codigo de convite</p>
+                <div class="codigo-badge" style="font-size:1.1rem">${t.codigo_convite || '—'}</div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px">
+                <button class="btn btn-accent" data-qr="${t.id}" style="font-size:.8rem;padding:8px">📱 QR Code</button>
+                <button class="btn" data-ver="${t.id}" style="font-size:.8rem;padding:8px">👁️ Ver alunos</button>
+                <button class="btn" data-copiar="${t.codigo_convite}" style="font-size:.8rem;padding:8px">📋 Copiar</button>
+                <button class="btn" data-regen="${t.id}" style="font-size:.8rem;padding:8px">🔄 Novo</button>
+              </div>
+              <button class="btn btn-danger" data-excluir="${t.id}" style="width:100%;margin-top:6px;font-size:.8rem;padding:6px">🗑️ Excluir turma</button>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    `;
+
+    const btnNova = document.getElementById('btnNovaTurma');
+    if (btnNova) btnNova.addEventListener('click', mostrarFormNovaTurma);
+
+    div.querySelectorAll('button[data-qr]').forEach(b => {
+      b.addEventListener('click', () => abrirModalQR(parseInt(b.dataset.qr)));
+    });
+    div.querySelectorAll('button[data-ver]').forEach(b => {
+      b.addEventListener('click', () => verTurma(parseInt(b.dataset.ver)));
+    });
+    div.querySelectorAll('button[data-copiar]').forEach(b => {
+      b.addEventListener('click', () => {
+        navigator.clipboard.writeText(b.dataset.copiar);
+        b.textContent = '✅ Copiado!';
+        setTimeout(() => b.textContent = '📋 Copiar', 1500);
+      });
+    });
+    div.querySelectorAll('button[data-regen]').forEach(b => {
+      b.addEventListener('click', () => regenerar(parseInt(b.dataset.regen)));
+    });
+    div.querySelectorAll('button[data-excluir]').forEach(b => {
+      b.addEventListener('click', () => excluirTurma(parseInt(b.dataset.excluir)));
+    });
+  } catch(e) {
+    div.innerHTML = '<div class="card alerta erro">' + e.message + '</div>';
+  }
+}
+
+function mostrarFormNovaTurma() {
+  const div = document.getElementById('formNovaTurma');
+  div.style.display = 'block';
+  div.innerHTML = `
+    <div class="card" style="background:#0f172a">
+      <h3>➕ Nova Turma</h3>
+      <label>Nome da turma</label>
+      <input id="nomeTurma" placeholder="Ex: 1 Ano A - Historia" autofocus />
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-accent" id="btnConfirmarNovaTurma">Criar</button>
+        <button class="btn" id="btnCancelarNovaTurma">Cancelar</button>
+      </div>
+      <div id="msgNovaTurma"></div>
+    </div>
+  `;
+
+  document.getElementById('nomeTurma').focus();
+  document.getElementById('btnConfirmarNovaTurma').addEventListener('click', async () => {
+    const nome = document.getElementById('nomeTurma').value.trim();
+    const msg = document.getElementById('msgNovaTurma');
+    if (!nome) { msg.innerHTML = '<div class="alerta erro">Digite um nome</div>'; return; }
+    try {
+      const r = await api('/turmas/criar', { method: 'POST', body: JSON.stringify({ nome }) });
+      msg.innerHTML = '<div class="alerta sucesso">✅ Turma criada! Codigo: <strong>' + r.codigo_convite + '</strong></div>';
+      setTimeout(() => carregarTurmasProfessor(), 1200);
+    } catch(e) {
+      msg.innerHTML = '<div class="alerta erro">' + e.message + '</div>';
+    }
+  });
+  document.getElementById('btnCancelarNovaTurma').addEventListener('click', () => {
+    div.style.display = 'none';
+  });
+}
+
+// ============================================================
+// MODAL QR CODE
+// ============================================================
+async function abrirModalQR(id) {
+  const modal = document.getElementById('modalQR');
+  modal.classList.add('ativo');
+
+  document.getElementById('qrImagem').src = '';
+  document.getElementById('qrCodigo').textContent = 'Carregando...';
+  document.getElementById('qrURL').textContent = 'Aguarde...';
+
+  try {
+    const data = await api('/qrcode/turma/' + id);
+
+    document.getElementById('qrTitulo').textContent = '📱 ' + data.turma.nome;
+    document.getElementById('qrSubtitulo').textContent = 'Mostre este QR Code para os alunos escanearem';
+    document.getElementById('qrImagem').src = data.qrcode;
+    document.getElementById('qrCodigo').textContent = data.turma.codigo;
+    document.getElementById('qrURL').textContent = data.url;
+
+    // Botoes
+    document.getElementById('btnBaixarQR').onclick = () => {
+      const a = document.createElement('a');
+      a.href = data.qrcode;
+      a.download = 'qrcode-' + data.turma.nome.replace(/\s+/g, '-') + '.png';
+      a.click();
+    };
+    document.getElementById('btnCopiarLink').onclick = (e) => {
+      navigator.clipboard.writeText(data.url);
+      e.target.textContent = '✅ Copiado!';
+      setTimeout(() => e.target.textContent = '📋 Copiar link', 1500);
+    };
+    document.getElementById('btnCopiarCodigo').onclick = (e) => {
+      navigator.clipboard.writeText(data.turma.codigo);
+      e.target.textContent = '✅ Copiado!';
+      setTimeout(() => e.target.textContent = '📋 Copiar codigo', 1500);
+    };
+    document.getElementById('btnImprimir').onclick = () => {
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <!DOCTYPE html><html><head><title>QR Code - ${data.turma.nome}</title>
+        <style>
+          body { font-family: sans-serif; text-align: center; padding: 40px; }
+          h1 { color: #0f172a; }
+          h2 { color: #64748b; font-size: 1.2rem; }
+          img { width: 400px; height: 400px; margin: 20px 0; }
+          .codigo { font-size: 2rem; font-weight: 700; color: #f59e0b; letter-spacing: 4px; font-family: monospace; }
+          .instrucoes { margin-top: 32px; color: #64748b; font-size: .9rem; line-height: 1.6; }
+        </style></head><body>
+        <h1>📱 Entre na turma</h1>
+        <h2>${data.turma.nome}</h2>
+        <img src="${data.qrcode}" />
+        <div class="codigo">${data.turma.codigo}</div>
+        <div class="instrucoes">Escaneie o QR Code com a camera do celular<br>
+        ou acesse: <strong>${data.url}</strong></div>
+        <script>window.onload = () => setTimeout(() => window.print(), 500);<\/script>
+        </body></html>
+      `);
+      win.document.close();
+    };
+  } catch(e) {
+    document.getElementById('qrCodigo').textContent = 'Erro';
+    document.getElementById('qrURL').textContent = e.message;
+  }
+}
+
+document.getElementById('btnFecharModal').addEventListener('click', () => {
+  document.getElementById('modalQR').classList.remove('ativo');
+});
+document.getElementById('modalQR').addEventListener('click', (e) => {
+  if (e.target.id === 'modalQR') e.target.classList.remove('ativo');
+});
+
+// ============================================================
+// Ver alunos de uma turma
+// ============================================================
+async function verTurma(id) {
+  const div = document.getElementById('conteudo');
+  div.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px">Carregando...</p>';
+
+  try {
+    const data = await api('/turmas/' + id + '/detalhes');
+
+    div.innerHTML = `
+      <button class="btn" onclick="carregarTurmasProfessor()" style="margin-bottom:16px">← Voltar</button>
+
+      <div class="card">
+        <h2>${data.turma.nome}</h2>
+        <p style="color:#94a3b8;font-size:.9rem;margin-top:4px">
+          ${data.alunos.length} aluno${data.alunos.length !== 1 ? 's' : ''} matriculado${data.alunos.length !== 1 ? 's' : ''}
+        </p>
+        <div style="margin-top:16px;text-align:center">
+          <p style="color:#94a3b8;font-size:.75rem;margin-bottom:4px">Codigo de convite</p>
+          <div class="codigo-badge">${data.turma.codigo_convite}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Alunos da turma</h3>
+        ${data.alunos.length === 0 ? `
+          <p style="color:#94a3b8;text-align:center;padding:24px">
+            Nenhum aluno nesta turma ainda.<br>
+            Compartilhe o codigo <strong style="color:var(--accent)">${data.turma.codigo_convite}</strong> com seus alunos.
+          </p>
+        ` : `
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>Nome</th><th>Email</th><th>Pontos</th><th>Quizzes</th><th>Acertos</th><th>Acao</th></tr></thead>
+              <tbody>
+                ${data.alunos.map(a => `
+                  <tr>
+                    <td>${a.nome}</td>
+                    <td style="color:#94a3b8;font-size:.85rem">${a.email}</td>
+                    <td><strong>${a.pontos}</strong></td>
+                    <td>${a.quizzes}</td>
+                    <td>${a.acertos}</td>
+                    <td>
+                      <button class="btn btn-danger" data-remover="${a.id}" style="font-size:.75rem;padding:6px 10px">Remover</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+
+    div.querySelectorAll('button[data-remover]').forEach(b => {
+      b.addEventListener('click', async () => {
+        if (!confirm('Remover este aluno da turma?')) return;
+        try {
+          await api('/turmas/' + id + '/aluno/' + b.dataset.remover, { method: 'DELETE' });
+          verTurma(id);
+        } catch(e) { alert(e.message); }
+      });
+    });
+  } catch(e) {
+    div.innerHTML = '<div class="card alerta erro">' + e.message + '</div>';
+  }
+}
+
+// ============================================================
+// Acoes
+// ============================================================
+async function regenerar(id) {
+  if (!confirm('Gerar novo codigo? O antigo deixara de funcionar.')) return;
+  try {
+    const r = await api('/turmas/' + id + '/regenerar-codigo', { method: 'PATCH' });
+    alert('Novo codigo: ' + r.codigo_convite);
+    carregarTurmasProfessor();
+  } catch(e) { alert(e.message); }
+}
+
+async function excluirTurma(id) {
+  if (!confirm('Excluir esta turma? Os alunos ficarao sem turma.')) return;
+  try {
+    await api('/turmas/' + id, { method: 'DELETE' });
+    carregarTurmasProfessor();
+  } catch(e) { alert(e.message); }
+}
+
+// ============================================================
+// ALUNO - Minha turma
+// ============================================================
+async function carregarMinhaTurma() {
+  const div = document.getElementById('conteudo');
+  div.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px">Carregando...</p>';
+
+  try {
+    const data = await api('/turmas/minha');
+
+    if (!data.turma) {
+      div.innerHTML = `
+        <div class="card" style="max-width:500px;margin:0 auto;text-align:center">
+          <div style="font-size:3rem;margin-bottom:12px">👥</div>
+          <h2>Voce ainda nao esta em uma turma</h2>
+          <p style="color:#94a3b8;margin:12px 0">
+            Peca o codigo de convite ao seu professor e entre abaixo.
+          </p>
+          <label style="margin-top:16px;display:block;text-align:left">Codigo da turma</label>
+          <input id="codigoTurma" placeholder="Ex: HIST-A3F9" 
+                 style="text-align:center;font-family:monospace;font-size:1.2rem;letter-spacing:2px;text-transform:uppercase" 
+                 maxlength="9" />
+          <button class="btn btn-accent" id="btnEntrar" style="width:100%;margin-top:12px">Entrar na turma</button>
+          <div id="msgTurma"></div>
+        </div>
+      `;
+
+      document.getElementById('codigoTurma').addEventListener('input', e => {
+        e.target.value = e.target.value.toUpperCase();
+      });
+      document.getElementById('btnEntrar').addEventListener('click', async () => {
+        const codigo = document.getElementById('codigoTurma').value.trim();
+        const msg = document.getElementById('msgTurma');
+        if (!codigo) { msg.innerHTML = '<div class="alerta erro">Digite o codigo</div>'; return; }
+        try {
+          const r = await api('/turmas/entrar', { method: 'POST', body: JSON.stringify({ codigo }) });
+          msg.innerHTML = '<div class="alerta sucesso">✅ ' + r.mensagem + '</div>';
+          setTimeout(() => carregarMinhaTurma(), 1200);
+        } catch(e) {
+          msg.innerHTML = '<div class="alerta erro">' + e.message + '</div>';
+        }
+      });
+      return;
+    }
+
+    div.innerHTML = `
+      <div class="card" style="background:linear-gradient(135deg,#1e293b,#312e81)">
+        <p style="color:#94a3b8;font-size:.8rem;letter-spacing:1px">MINHA TURMA</p>
+        <h2 style="margin:8px 0 4px">${data.turma.nome}</h2>
+        <p style="color:#94a3b8;font-size:.85rem">${data.colegas.length} colega${data.colegas.length !== 1 ? 's' : ''} na turma</p>
+        <div style="margin-top:16px;text-align:center">
+          <p style="color:#94a3b8;font-size:.75rem;margin-bottom:4px">Codigo da turma</p>
+          <div class="codigo-badge">${data.turma.codigo_convite}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🏆 Ranking da turma</h3>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table>
+            <thead><tr><th>#</th><th>Aluno</th><th>Pontos</th></tr></thead>
+            <tbody>
+              ${data.colegas.map((c, i) => {
+                const eu = c.id === getUsuario().id;
+                return '<tr style="' + (eu ? 'background:rgba(245,158,11,.15)' : '') + '">' +
+                  '<td>' + (i+1) + '</td>' +
+                  '<td>' + c.nome + (eu ? ' <span class="badge">Voce</span>' : '') + '</td>' +
+                  '<td><strong>' + c.pontos + '</strong></td>' +
+                  '</tr>';
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    div.innerHTML = '<div class="card alerta erro">' + e.message + '</div>';
+  }
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
